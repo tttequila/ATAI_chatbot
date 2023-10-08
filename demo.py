@@ -2,6 +2,8 @@ from speakeasypy import Speakeasy
 import rdflib
 import time
 import os
+import keyboard
+# import cv2
 # import logging
 
 USER_NAME = 'broil-grandioso-pie_bot'
@@ -49,8 +51,8 @@ class Agent:
         query = query.strip("'")
         
         res = []
-        for s, in self.graph.query(query):
-            res.append(str(s))
+        for row in self.graph.query(query):
+            res.append([str(i) for i in row])
         
         return res
     
@@ -82,13 +84,13 @@ class Agent:
                     # logging receiving message
                     # logging.info("From room %s\n Received message: %s"%(room_id, message.message))
                     self.__real_time_logging("From room %s\n Received message %s"%(room_id, message.message))
-                    print("msg: ", message.message)
+                    # print("msg: ", message.message)
                     try:
                         ans = self.__query(str(message.message))     
                     except:
                         ans = 'Null'
                         
-                    print('ans: ', ans) 
+                    # print('ans: ', ans) 
                 
                     
                     room.post_messages(f"{ans}")
@@ -104,6 +106,12 @@ class Agent:
                     room.post_messages(f"Received your reaction: '{reaction.type}' ")
                     room.mark_as_processed(reaction)
                     
-# if __name__ == '__main__':
-bot = Agent()
-bot.start()                    
+            # exiting detect
+            if keyboard.is_pressed('q'):
+                if input("Detect 'q', do you wannt to exit? [y/n]:")=='y':
+                    print('killing program...')
+                    break
+                    
+if __name__ == '__main__':
+    bot = Agent()
+    bot.start()                    
