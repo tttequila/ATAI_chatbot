@@ -412,8 +412,8 @@ class Agent:
         '''
 
         # Temporarily fix unicode issue
-        if '-' in movie_name:
-            movie_name = movie_name.replace('-','–')
+        if '–' in movie_name:
+            movie_name = movie_name.replace('–','-')
 
         if self.__get_word_pos(relation) == "NOUN":
             ans = "The " + relation + " of " + movie_name + " is " + res + "."
