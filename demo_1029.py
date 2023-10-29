@@ -105,7 +105,7 @@ class KG_handler:
             'country of origin': ['origin', 'country'],
             '–' : ['-']
         }
-        self.replacement_dict = {k:v for k,  v_list in self.synonyms_dict.items() for v in v_list }
+        self.replacement_dict = {v:k for k,  v_list in self.synonyms_dict.items() for v in v_list }
     
     def _get_entity_name(self,ent_candidates): # Find the movie entity name by select the candidates with Upper letter and largest length.
         for element in ent_candidates:
@@ -113,7 +113,7 @@ class KG_handler:
                 print(element)
                 return element
         return None
-        
+
     def _ruler_based(self, query:str):
         '''
         Param:
@@ -131,14 +131,11 @@ class KG_handler:
         # pre-proecssing
         tokens = self._replace(query)
 
-        
-        # get all word combination that match existed entities
         word_seq = [' '.join(tokens[i:j+1]) for i in range(len(tokens)) for j in range(i, len(tokens))]
         matched_seq = [seq for seq in word_seq if seq in (self.ent_lbl_set | self.rel_lbl_set)]      # all exited entities that appear in the sentence
-        
+
         # extraction 
         ent_candidates = []
-        
         for seq in matched_seq:
             if seq in self.ent_lbl_set:
                 ent_candidates.append(seq)
@@ -148,9 +145,11 @@ class KG_handler:
                 if res['rel_lbl'] != None:
                     print("WARNIND: multiple possible relations detected...")
                 res['rel'] = seq
-                res['rel_lbl'] = self.lbl2rel[seq]
-                res['rel_postfix'] = self._get_rel_label(res['rel_lbl'])
-        # process possible entities
+                res['rel_lbl'] = [seq]
+                res['rel_postfix'] = [self._get_rel_label(self.lbl2rel[seq])]
+                
+                
+        # extract entity from candidates
         ent_candidates = sorted(ent_candidates, key = lambda x:len(x), reverse=True)
         # res['ent_lbl'] = ent_candidates[0]
         res['ent_lbl'] = self._get_entity_name(ent_candidates)
@@ -265,7 +264,6 @@ class KG_handler:
                    
             - res (str): query result
         '''
-        
         extraction = self._ruler_based(user_input)
         # print(extraction)
 
@@ -385,7 +383,7 @@ class Agent:
                          for (v, p) in nltk.bigrams(brown.tagged_words(tagset="universal")) 
                          if v[1] == "VERB" and p[1] == "ADP"]
         self.verb_prep_counts = Counter(verb_prep_pairs)
-        self.little_tiny_tagging = spacy.load("en_core_web_sm")
+        # self.little_tiny_tagging = spacy.load("en_core_web_sm")
         
         
     def __get_best_preposition(self, verb):
@@ -404,7 +402,7 @@ class Agent:
         '''
         given a word, return pos
         '''
-        doc = self.little_tiny_tagging(word) 
+        doc = self.KG_handler.spacy_model(word) 
         pos_tag = doc[0].pos_  
         return pos_tag
 
@@ -412,10 +410,20 @@ class Agent:
         '''
         construct answer with movie name, relation and query result
         '''
+
+        # Temporarily fix unicode issue
+        if '-' in movie_name:
+            movie_name = movie_name.replace('-','–')
+
         if self.__get_word_pos(relation) == "NOUN":
             ans = "The " + relation + " of " + movie_name + " is " + res + "."
         else:
-            ans = movie_name + " was " + relation + " " + self.__get_best_preposition(relation) + " " + res + "."
+            # ans = movie_name + " was " + relation + " " + self.__get_best_preposition(relation) + " " + res + "."
+            preposition = self.__get_best_preposition(relation) # preposition may be empty which is decided by the pre-trained model
+            if preposition != None:
+                ans = movie_name + " was " + relation + " " + preposition + " " + res + "."
+            else:
+                ans = movie_name + " was " + relation + " " + res + "."
         return ans
 
     
@@ -437,7 +445,11 @@ class Agent:
             res = self.__query__sparsql(query)
             return res
         else:
+            print("Query is in NL style!")
             extraction, res = self.KG_handler.get_query_res(query)
+            print("Final extraction")
+            print(extraction)
+            print(res)
             return self.__return_ans(movie_name=extraction['ent_lbl'],
                                     relation=extraction['rel'],
                                     res=res)
@@ -472,10 +484,11 @@ class Agent:
                     # logging.info("From room %s\n Received message: %s"%(room_id, message.message))
                     self.__real_time_logging("From room %s\n Received message %s"%(room_id, message.message))
                     # print("msg: ", message.message)
-                    try:
-                        ans = self.__query(str(message.message))     
-                    except:
-                        ans = 'Null, query fail or error happened'
+                    # try:
+                    #     ans = self.__query(str(message.message))     
+                    # except:
+                    #     ans = 'Null, query fail or error happened'
+                    ans = self.__query(str(message.message))
                         
                     # print('ans: ', ans) 
                 
