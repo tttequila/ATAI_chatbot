@@ -26,7 +26,7 @@ PWD = 'NrBl_CRF6101Dg'
 HOST = 'https://speakeasy.ifi.uzh.ch'
 
 class KG_handler:
-    def __init__(self):
+    def __init__(self, spacy_model):
         '''
         ### Notices 
             - all2lbl has more "P" item than ent2id dose (ent2lbl:298, ent2id:47)
@@ -39,11 +39,7 @@ class KG_handler:
         # language model
         print('initializing language model...')
         self.LM = fasttext.load_model('utils/cc.en.300.bin')
-        try:
-            # self.spacy_model = en_core_web_trf.load()
-            self.spacy_model = spacy.load('en_core_web_trf')
-        except OSError:
-            print('Can\'t find model, please run command "python -m spacy download en_core_web_trf" to download it and restart the program')
+        self.spacy_model = spacy_model
 
         
         
@@ -105,8 +101,15 @@ class KG_handler:
             'country of origin': ['origin', 'country'],
             '–' : ['-']
         }
-        self.replacement_dict = {k:v for k,  v_list in self.synonyms_dict.items() for v in v_list }
-        
+        self.replacement_dict = {v:k for k,  v_list in self.synonyms_dict.items() for v in v_list }
+    
+    def _get_entity_name(self,ent_candidates): # Find the movie entity name by select the candidates with Upper letter and largest length.
+        for element in ent_candidates:
+            if any(c[0].isupper() for c in element):
+                print(element)
+                return element
+        return None
+
     def _ruler_based(self, query:str):
         '''
         Param:
@@ -123,11 +126,10 @@ class KG_handler:
         
         # pre-proecssing
         tokens = self._replace(query)
-        
-        # get all word combination that match existed entities
+
         word_seq = [' '.join(tokens[i:j+1]) for i in range(len(tokens)) for j in range(i, len(tokens))]
         matched_seq = [seq for seq in word_seq if seq in (self.ent_lbl_set | self.rel_lbl_set)]      # all exited entities that appear in the sentence
-        
+
         # extraction 
         ent_candidates = []
         for seq in matched_seq:
@@ -139,13 +141,21 @@ class KG_handler:
                 if res['rel_lbl'] != None:
                     print("WARNIND: multiple possible relations detected...")
                 res['rel'] = seq
-                res['rel_lbl'] = self.lbl2rel[seq]
-                res['rel_postfix'] = self._get_rel_label(res['rel_lbl'])
-        # process possible entities
-        ent_candidates = sorted(ent_candidates, key = lambda x:len(x[0]), reverse=True)
-        res['ent_lbl'] = ent_candidates[0]
-    
+                res['rel_lbl'] = [seq]
+                res['rel_postfix'] = [self._get_rel_label(self.lbl2rel[seq])]
+                
+                
+        # extract entity from candidates
+        ent_candidates = sorted(ent_candidates, key = lambda x:len(x), reverse=True)
+        # res['ent_lbl'] = ent_candidates[0]
+        res['ent_lbl'] = self._get_entity_name(ent_candidates)
+
+        print("Result:")
+        print(res)
         return res
+    
+    
+
     
     def _similarity_based(self, query, top_k_rel=10, top_k_ent=1):
         '''
@@ -160,7 +170,7 @@ class KG_handler:
                'rel_postfix': None}
         
         # pre-processing
-        tokens = self._replace(query).join()
+        tokens = ' '.join(self._replace(query))
         
         # token process
         doc = self.spacy_model(tokens)
@@ -175,6 +185,9 @@ class KG_handler:
             elif (token.pos_=='NOUN') | (token.pos_=="VERB"):
                 rel.append(token.lemma_)
                 
+        # fail to extraction entity or relation 
+        if (len(ent)==0) | (len(rel)==0):
+                return False
                 
         # find the closest relation information
         rel_wv = np.array([i for i in self.rel_lbl2vec.values()])
@@ -210,7 +223,11 @@ class KG_handler:
         '''
         
         # remove all possible punctuation in the end of sentence
-        cleaned_sent = sent.rstrip(string.punctuation + ' ')
+        if '-' in sent:
+            sent = sent.replace('-','–')
+
+        translator = str.maketrans("", "", string.punctuation.replace(":", ""))
+        cleaned_sent = sent.translate(translator)
         tokens = cleaned_sent.split()
         tokens = [ self.replacement_dict[token] if token in self.replacement_dict.keys() else token for token in tokens ]
         
@@ -227,7 +244,7 @@ class KG_handler:
         label = self._get_rel_label(URI)
         return label[0] == 'Q'   
     
-    def get_query_res(self, user_input:str) -> tuple(dict, str):
+    def get_query_res(self, user_input:str) -> tuple:
         
         '''
         ### Arg:
@@ -246,19 +263,23 @@ class KG_handler:
                    
             - res (str): query result
         '''
-        
         extraction = self._ruler_based(user_input)
         # print(extraction)
 
         # calling backup extraction strategy
         if None in extraction.values():
-            back_extraction = self._similarity_based(user_input)
+            backup_extraction = self._similarity_based(user_input)
+            # fail to understand sentence
+            if backup_extraction == False:
+                 return None, False
             # replace None item with similarity based extraction
             for k,v in extraction.items():
                 if v == None:
-                    extraction[k] = back_extraction[k]    
+                    extraction[k] = backup_extraction[k]    
 
-        # print(back_extraction)
+        # print(backup_extraction)
+        print("******")
+        print(extraction)
 
         # grab result from graph
         for i in range(len(extraction['rel_postfix'])):
@@ -333,11 +354,28 @@ class KG_handler:
     
 class Agent:
     def __init__(self, user_name=USER_NAME, pwd=PWD, host=HOST, log_path = 'logs'):
+        
+                # activate GPU
+        try:
+            if spacy.prefer_gpu():
+                print('Activate GPU acceleration successfully')
+            else:
+                print('Fail to activate GPU, using CPU instead...')
+        except:
+            print('Fail to activate GPU, using CPU instead...')
+        
+        try:
+            self.spacy_model = spacy.load('en_core_web_trf')
+        except OSError:
+            print('Can\'t find model, please run command "python -m spacy download en_core_web_trf" to download it and restart the program')
+        self.doc = None
+
+        
         self.user_name = user_name
         self.pwd = pwd
         self.host = host
         self.activated_room = []
-        self.KG_handler = KG_handler()
+        self.KG_handler = KG_handler(spacy_model=self.spacy_model)
         # self.log_path = log_path
         
         # login agent
@@ -349,12 +387,6 @@ class Agent:
             os.makedirs(self.log_path)
             print("Creat log path as %s"%self.log_path)
         self.log_path = self.log_path + '\\' + '%s.log'%time.strftime("%m-%d_%H_%M_%S", time.localtime())
-        # logging.basicConfig(filename='test.log',
-        #                     filemode='w', 
-        #                     format='%(asctime)s - %(levelname)s - %(message)s',
-        #                     datefmt="%d-%M-%Y %H:%M:%S", 
-        #                     level=logging.INFO)
-        # logging.info("Log start!")
         
         
         nltk.download("universal_tagset")
@@ -364,7 +396,10 @@ class Agent:
                          for (v, p) in nltk.bigrams(brown.tagged_words(tagset="universal")) 
                          if v[1] == "VERB" and p[1] == "ADP"]
         self.verb_prep_counts = Counter(verb_prep_pairs)
-        self.little_tiny_tagging = spacy.load("en_core_web_sm")
+        # self.little_tiny_tagging = spacy.load("en_core_web_sm")
+        
+        
+        
         
         
     def __get_best_preposition(self, verb):
@@ -379,35 +414,74 @@ class Agent:
         else:
             return None
 
+
+
     def __get_word_pos(self, word) -> str:
         '''
         given a word, return pos
         '''
-        doc = self.little_tiny_tagging(word) 
+        doc = self.spacy_model(word) 
+        print('doc:', doc)
         pos_tag = doc[0].pos_  
         return pos_tag
+
+
 
     def __return_ans(self, movie_name, relation, res) -> str:
         '''
         construct answer with movie name, relation and query result
         '''
+
+        # Temporarily fix unicode issue
+        if '–' in movie_name:
+            movie_name = movie_name.replace('–','-')
+
         if self.__get_word_pos(relation) == "NOUN":
             ans = "The " + relation + " of " + movie_name + " is " + res + "."
         else:
-            ans = movie_name + " was " + relation + " " + self.__get_best_preposition(relation) + " " + res + "."
+            # ans = movie_name + " was " + relation + " " + self.__get_best_preposition(relation) + " " + res + "."
+            preposition = self.__get_best_preposition(relation) # preposition may be empty which is decided by the pre-trained model
+            if preposition != None:
+                ans = movie_name + " was " + relation + " " + preposition + " " + res + "."
+            else:
+                ans = movie_name + " was " + relation + " " + res + "."
         return ans
+
+    
+    def __query__sparsql(self, query:str) -> list:
+        # preprocessing
+        query = query.strip(" ")
+        query = query.strip("'")
+        
+        res = []
+        for row in self.graph.query(query):
+            res.append([str(i) for i in row])
+        
+        return res
     
         
     def __query(self, query:str) -> str:
-        extraction, res = self.KG_handler.get_query_res(query)
-        return self.__return_ans(movie_name=extraction['ent_lbl'],
-                                 relation=extraction['rel'],
-                                 res=res)
+        # Judge whether the query is in Natural Language or SPARQL
+        if "PREFIX" in query:
+            res = self.__query__sparsql(query)
+            return res
+        else:
+            print("Query is in NL style!")
+            self.doc = self.spacy_model(query)
+            extraction, res = self.KG_handler.get_query_res(query)
+            if res == False:
+                return "Sorry :( I fail to find the answer for. I will learn harder and be more intelligent! Meet u in the future ~"
+            print("Final extraction")
+            print(extraction)
+            print(res)
+            return self.__return_ans(movie_name=extraction['ent_lbl'],
+                                    relation=extraction['rel'],
+                                    res=res)
         
     
     def __real_time_logging(self, msg:str):
         time_format = time.strftime("[%Y-%m-%d %H:%M:%S]\n", time.localtime())
-        with open(self.log_path, mode='a') as f:
+        with open(self.log_path, mode='a', encoding='utf-8') as f:
             f.write(time_format)
             f.write(msg)
         
@@ -434,10 +508,11 @@ class Agent:
                     # logging.info("From room %s\n Received message: %s"%(room_id, message.message))
                     self.__real_time_logging("From room %s\n Received message %s"%(room_id, message.message))
                     # print("msg: ", message.message)
-                    try:
-                        ans = self.__query(str(message.message))     
-                    except:
-                        ans = 'Null, query fail or error happened'
+                    # try:
+                    #     ans = self.__query(str(message.message))     
+                    # except:
+                    #     ans = 'Null, query fail or error happened'
+                    ans = self.__query(str(message.message))
                         
                     # print('ans: ', ans) 
                 
