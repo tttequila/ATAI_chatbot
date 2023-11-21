@@ -10,6 +10,9 @@
 
 ### 11.21 Evaluation3 Update
 Re-structurize the whole demo, now we have separate modules to handle different functions: 
+
+重新对代码进行了结构化，将这几个功能分别装在不同的模组里，希望能让代码的结构和逻辑更清晰
+
 - closed question/open question
 - recommendation
 - crowdsource
@@ -18,17 +21,29 @@ Re-structurize the whole demo, now we have separate modules to handle different 
 
 `LM.py`: module for language process. Contains various language models.
 
+语言模型模组，里面装了各种可能用到的语言模型
+
 `KG_handler.py`: module for knowledge graph. Store all member variables relevant to the KG. Each variable relevant to the KG (e.g. rel2lbl, ent2lbl, rel_emb, etc.) should be grabbed from this module and from the class with the same name as the module file (e.g. KG_handler)
 
+知识图谱模组，负责初始化各种知识图谱相关的变量。也提供了各种判断实体或者关系的函数。
+
 `demo.py`: module for the main body of our bot. The main function is to handle various modules and assemble them as a real bot. 
+
+bot的主体，负责整合各个模块，负责将问题分类，并发布给各个功能模组进行处理
 
 **Functional Modules**
 
 `Recommendor.py`: module specially designed for handling recommendation questions. The public API is `recommend(sentence, mode)`. The mode argument is supposed to be within *["feature", "movie"]*. To be more specific, *"feature"* means return common features of given movies. While *"movie"* mean recommending a movie directly based on graph embedding
 
+负责处理推荐问题的模组
+
 `Que.py`: module for natural language query. **Haven't finished yet**
 
+负责处理自然语言query的模组
+
 `CrowdSource.py`: module for crowdsource task. **Haven't finished yet**
+
+负责处理众包任务的模组
 
 -----
 ## Set up
