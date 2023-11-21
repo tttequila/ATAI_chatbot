@@ -2,7 +2,30 @@
 <span style="color:gray"> 23HS ATAI Proj </span> [Github](https://github.com/tttequila/ATAI_chatbot)
 
 
-❗VERY IMPORTANT: to fully operate the agent or test it, there are still some steps needed to be followed to download data needed. 
+❗VERY IMPORTANT: to fully operate the agent or test it, there are still some steps that need to be followed to download the data needed. 
+
+-----
+### 11.21 Evaluation3
+Re-structurize the whole demo, now we have separate modules to handle different functions: 
+- closed question/open question
+- recommendation
+- crowdsource
+
+**Common Modules**
+
+`LM.py`: module for language process. Contains various language models.
+
+`KG_handler.py`: module for knowledge graph. Store all member variables relevant to the KG. Each variable relevant to the KG (e.g. rel2lbl, ent2lbl, rel_emb, etc.) should be grabbed from this module and from the class with the same name as the module file (e.g. KG_handler)
+
+`demo.py`: module for the main body of our bot. The main function is to handle various modules and assemble them as a real bot. 
+
+**Functional Modules**
+
+`Recommendor.py`: module specially designed for handling recommendation questions. outer API: `.recommend(sentence, mode)`. The mode argument is supposed to be within ["feature", "movie"]. To be more specific, *"feature"* means return common features of given movies. While *"movie"* mean recommending a movie directly based on graph embedding
+`Que.py`: module for natural language query. **Haven't finished yet**
+`CrowdSource.py`: module for crowdsource task. **Haven't finished yet**
+
+-----
 
 ##### step 1. Download packages needed
 
@@ -31,12 +54,18 @@ The final result of folder `utils` supposed to be like:
 
 > utils
 >  > 14_graph.nt
-cc.en.300.bin
-entity_ids.del
-ent_lbl2vec.pkl
-relation_embeds.npy
-relation_ids.del
-rel_lbl2vec.pkl
+>  > 
+>  >cc.en.300.bin
+>  > 
+>  >entity_ids.del
+>  > 
+>  >ent_lbl2vec.pkl
+>  > 
+>  >relation_embeds.npy
+>  > 
+>  >relation_ids.del
+>  > 
+>  >rel_lbl2vec.pkl
 
 
 
