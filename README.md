@@ -25,7 +25,9 @@ Re-structurize the whole demo, now we have separate modules to handle different 
 **Functional Modules**
 
 `Recommendor.py`: module specially designed for handling recommendation questions. outer API: `.recommend(sentence, mode)`. The mode argument is supposed to be within ["feature", "movie"]. To be more specific, *"feature"* means return common features of given movies. While *"movie"* mean recommending a movie directly based on graph embedding
+
 `Que.py`: module for natural language query. **Haven't finished yet**
+
 `CrowdSource.py`: module for crowdsource task. **Haven't finished yet**
 
 -----
