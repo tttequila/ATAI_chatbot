@@ -5,7 +5,9 @@
 ❗VERY IMPORTANT: to fully operate the agent or test it, there are still some steps that need to be followed to download the data needed. 
 
 -----
+
 ## 🕑Updates
+
 ### 11.21 Evaluation3 Update
 Re-structurize the whole demo, now we have separate modules to handle different functions: 
 - closed question/open question
@@ -27,6 +29,7 @@ Re-structurize the whole demo, now we have separate modules to handle different 
 `CrowdSource.py`: module for crowdsource task. **Haven't finished yet**
 
 -----
+## Set up
 
 ##### step 1. Download packages needed
 
@@ -50,23 +53,6 @@ For the pretrained model, download [weight](https://dl.fbaipublicfiles.com/fastt
 Download other data may needed from [link](https://drive.google.com/file/d/1a6re-lhl6B9ebVBfsihmF65Wma8gCssk/view). 
 And also decompress it into given folder `utils` 
 
----
-The final result of folder `utils` supposed to be like:
-
-> utils
->  > 14_graph.nt
->  > 
->  >cc.en.300.bin
->  > 
->  >entity_ids.del
->  > 
->  >ent_lbl2vec.pkl
->  > 
->  >relation_embeds.npy
->  > 
->  >relation_ids.del
->  > 
->  >rel_lbl2vec.pkl
 
 
 
