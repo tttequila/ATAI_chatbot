@@ -268,12 +268,17 @@ class Agent:
                     sentence = str(message.message)
                     question_type = self.__question_classifier(sentence)
                     
-                    if question_type == 1:
-                    
-                        ans1 = self.Recommendor.recommend(sentence=sentence, mode='feature')
-                        ans2 = self.Recommendor.recommend(sentence=sentence, mode='movie')
+                    try:
                         
-                        ans = self.resp_generator.generate(question_type, [ans1, ans2])
+                        if question_type == 1:
+                        
+                            ans1 = self.Recommendor.recommend(sentence=sentence, mode='feature')
+                            ans2 = self.Recommendor.recommend(sentence=sentence, mode='movie')
+                            
+                            ans = self.resp_generator.generate(question_type, [ans1, ans2])
+                    
+                    except:
+                        ans = "Congratulation! You have triggered my bugs... XP\n Contact the developer via haoyang.liang@uzh.ch to help me being more robust!"
                         
                     # print('ans: ', ans) 
                 
