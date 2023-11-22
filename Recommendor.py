@@ -86,7 +86,8 @@ class recommender():
             emb_list = [self.KG.ent_emb[self.KG.ent2id[rdflib.term.URIRef(ent[0])]] 
                             for ent in res if rdflib.term.URIRef(ent[0]) in self.KG.ent2id.keys()]
             features_emb += emb_list
-        cluster = KMeans(n_clusters=int(len(features_emb)/2), n_init='auto')
+        cluster = KMeans(n_clusters=np.max(( int(len(features_emb)/2), 1) ),
+                         n_init='auto')
         cluster.fit(np.array(features_emb))
         labels_cnt = np.bincount(cluster.labels_)
 
@@ -103,36 +104,53 @@ class recommender():
         
         return closest_rel_lbl
 
-    def _recom(self, movie):
-        movie_index = self.movies[self.movies['title'] == movie].index[0]
-        distances = self.similarity[movie_index]
-        movies_list = sorted(list(enumerate(distances)), reverse=True, key=lambda x: x[1])[1:6]
+    # def _recom(self, movie):
+    #     movie_index = self.movies[self.movies['title'] == movie].index[0]
+    #     distances = self.similarity[movie_index]
+    #     movies_list = sorted(list(enumerate(distances)), reverse=True, key=lambda x: x[1])[1:6]
 
-        recommended_movies = []
-        for i in movies_list:
-            recommended_movies.append(self.movies.iloc[i[0]]['title'])
-        return recommended_movies
+    #     recommended_movies = []
+    #     for i in movies_list:
+    #         recommended_movies.append(self.movies.iloc[i[0]]['title'])
+    #     return recommended_movies
+    
+    # def _movie_reco(self, sentence) -> list:
+    #     '''
+    #     Params:
+    #         sentence
+    #     Return:
+    #         movies: list of movie named entities in the sentence
+    #         recom_movies: recommended movie according to content-based recommendation 
+            
+    #     '''
+    #     movies = self.ner.extraction(sentence)
+    #     movies = [movie for movie in movies if movie in self.movie_name_list]
+
+    #     recom_movies = []
+    #     for movie in movies:
+    #         try:
+    #             recom_movies += self._recom(movie)
+    #         except:
+    #             "Can not find related movie in the dataset"
+
+    #     return recom_movies
     
     def _movie_reco(self, sentence) -> list:
-        '''
-        Params:
-            sentence
-        Return:
-            movies: list of movie named entities in the sentence
-            recom_movies: recommended movie according to content-based recommendation 
-            
-        '''
         movies = self.ner.extraction(sentence)
-        movies = [movie for movie in movies if movie in self.movie_name_list]
-
-        recom_movies = []
-        for movie in movies:
-            try:
-                recom_movies.append(self._recom(movie))
-            except:
-                "Can not find related movie in the dataset"
-
-        return movies, recom_movies
+        
+        movie_list_key = [key for key,value in self.KG.all2lbl.items() if value in movies]
+        
+        movie_rec = []
+        movie_emb = np.mean([self.KG.ent_emb[self.KG.ent2id[rdflib.term.URIRef(movie)]] 
+                             for movie in movie_list_key],0)
+        
+        dist = pairwise_distances(movie_emb.reshape(1,-1), self.KG.ent_emb).reshape(-1)
+        closest_mov_idx = dist.argsort()
+        for idx in closest_mov_idx[:15]:
+            ent_lbl = self.KG.ent2lbl[self.KG.id2ent[idx]]
+            if ent_lbl not in movies:
+                movie_rec.append(ent_lbl)
+        return movie_rec
     
 if __name__ == '__main__':
     import sparknlp
