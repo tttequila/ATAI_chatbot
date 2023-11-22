@@ -25,6 +25,91 @@ PWD = 'NrBl_CRF6101Dg'
 HOST = 'https://speakeasy.ifi.uzh.ch'
     
     
+class response_generator():
+    def __init__(self, KG):
+        self.reco_dict = {
+            'person_templates' : {
+                "default": "{name} may be involved in the producing of these movies"
+            },
+
+            'genre_templates' : {
+                "action": "an adrenaline-fueled {genre} with explosive action",
+                "comedy": "a hilarious {genre} filled with laughter",
+                "sci-fi": "explore {genre} worlds and mind-bending concepts",
+                "horror": "a spine-chilling {genre} that will haunt your dreams",
+                "romance": "a heartfelt {genre} with passion and emotion",
+                "fantasy": "escape to enchanting {genre} in a magical adventure",
+                "mystery": "unravel {genre} secrets and solve mysteries",
+                "thriller": "an intense {genre} experience that will keep you on edge"
+            },
+
+            'emotion_templates' : {
+                "romantic": "get ready for a romantic journey",
+                "love": "love takes center stage in this heartfelt story",
+                "heartwarming": "experience a heartwarming tale that leaves you smiling",
+                "uplifting": "an uplifting story that inspires and fills the heart with joy",
+                "tear-jerker": "prepare for an emotional rollercoaster",
+                "bittersweet": "a bittersweet narrative balancing love and loss",
+                "feel-good": "a feel-good movie that lifts your spirits",
+                "passionate": "feel the passion in every scene of this emotionally charged film"
+            },
+
+            'default_templates' : {
+                "default": "movies characterized by {default}"
+            }
+        }    
+        
+        self.KG = KG
+        
+    
+    def generate(self, question_type, args):
+        if question_type == 1:
+            return self.__reco_generation(args)
+            
+    
+    def __reco_generation(self, args):
+        features = args[0]
+        movie = args[1]
+        
+        description = []
+        response = []
+        for feature in features:
+            # If the feature is Name
+            # if isinstance(feature, list):
+            #     template_key, feature_name = feature
+            #     if template_key in self.reco_dict['person_templates']:
+            #         description.append(self.reco_dict['person_templates'][template_key].format(feature=feature_name))
+            #     else:
+            #         description.append(self.reco_dict['default_templates']["default_person"].format(feature=feature_name))
+            
+            if self.KG._is_human(feature):
+                description.append(self.reco_dict['person_templates']['default'].format(name=feature))
+            elif feature in self.reco_dict['genre_templates']:
+                description.append(self.reco_dict['genre_templates'][feature].format(genre=feature))
+            elif feature in self.reco_dict['emotion_templates']:
+                description.append(self.reco_dict['emotion_templates'][feature])
+            else:
+                description.append(self.reco_dict['default_templates']["default"].format(default=feature))
+        # print(description)
+        if description:
+            or_joined = " or ".join(description[:len(description)//2])
+            comma_joined = ", ".join(description[len(description)//2:])
+            response.append(f"Adequate recommendations will be {or_joined}. Alternatively, you might enjoy {comma_joined}.")
+            if movie:
+                response.append("Base on my knowledge, I hereby recommend following movies for you: %s"%str(movie))
+            return ' '.join(response)
+        else:
+            response.append("No specific information available for the provided movie features.")
+            if movie:
+                response.append("But according to my content-based analysis, I can still recommend you some movies: %s"%str(movie))
+                return ' '.join(response)
+            else:
+                return "Oops...Unfortunately I failed to recommend anything for you. Please make sure you typed all movie names correctly. Notice the letter case ;)"
+            
+        
+        
+        
+    
 class Agent:
     def __init__(self, user_name=USER_NAME, pwd=PWD, host=HOST, log_path = 'logs'):
         
@@ -45,6 +130,7 @@ class Agent:
         self.LM_ner = LM_ner()
         self.KG_handler = KG_handler()
         self.Recommendor = recommender(self.KG_handler, self.LM_pos, self.LM_ner)
+        self.resp_generator = response_generator(self.KG_handler)
         # self.log_path = log_path
         
         # login agent
@@ -86,7 +172,7 @@ class Agent:
                                     relation=extraction['rel'],
                                     res=res)
         
-        
+    
         
         
     def __get_best_preposition(self, verb):
@@ -187,7 +273,7 @@ class Agent:
                         ans1 = self.Recommendor.recommend(sentence=sentence, mode='feature')
                         ans2 = self.Recommendor.recommend(sentence=sentence, mode='movie')
                         
-                        ans = "Here are common feature: %s;\nand we recommend a movie for you: %s"%(str(ans1), str(ans2))
+                        ans = self.resp_generator.generate(question_type, [ans1, ans2])
                         
                     # print('ans: ', ans) 
                 
