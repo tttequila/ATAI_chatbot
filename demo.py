@@ -11,6 +11,9 @@ import sparknlp
 from LM import *
 from KG_handler import *
 from Recommendor import *
+from Multimedia import *
+from Q_classifier import *
+from Quer import *
 
 
 # import re
@@ -29,7 +32,7 @@ class response_generator():
     def __init__(self, KG):
         self.reco_dict = {
             'person_templates' : {
-                "default": "{name} may be involved in the producing of these movies"
+                "default": "movies involing {name} during producing"
             },
 
             'genre_templates' : {
@@ -62,9 +65,8 @@ class response_generator():
         self.KG = KG
         
     
-    def generate(self, question_type, args):
-        if question_type == 1:
-            return self.__reco_generation(args)
+    def generate(self, args):
+        return self.__reco_generation(args)
             
     
     def __reco_generation(self, args):
@@ -129,8 +131,12 @@ class Agent:
         self.LM_pos = LM_pos()
         self.LM_ner = LM_ner()
         self.KG_handler = KG_handler()
+        
         self.Recommendor = recommender(self.KG_handler, self.LM_pos, self.LM_ner)
+        self.querier = fact_querier(self.KG_handler, self.LM_pos, self.LM_ner)
+        self.multimeida = multimedia_handler(self.KG_handler, self.LM_ner)
         self.resp_generator = response_generator(self.KG_handler)
+        self.classifier = Q_classifier()
         # self.log_path = log_path
         
         # login agent
@@ -175,50 +181,50 @@ class Agent:
     
         
         
-    def __get_best_preposition(self, verb):
-        '''
-        given verb, return the proper prep
-        '''
-        verb = verb.lower()
-        prepositions = [(prep, count) for (v, prep), count in self.verb_prep_counts.items() if v == verb]
-        if prepositions:
-            best_preposition = max(prepositions, key=lambda x: x[1])
-            return best_preposition[0]
-        else:
-            return None
+    # def __get_best_preposition(self, verb):
+    #     '''
+    #     given verb, return the proper prep
+    #     '''
+    #     verb = verb.lower()
+    #     prepositions = [(prep, count) for (v, prep), count in self.verb_prep_counts.items() if v == verb]
+    #     if prepositions:
+    #         best_preposition = max(prepositions, key=lambda x: x[1])
+    #         return best_preposition[0]
+    #     else:
+    #         return None
 
 
 
-    def __get_word_pos(self, word) -> str:
-        '''
-        given a word, return pos
-        '''
-        doc = self.LM_pos.full_tagging(word) 
-        print('doc:', doc)
-        pos_tag = doc[0].pos_  
-        return pos_tag
+    # def __get_word_pos(self, word) -> str:
+    #     '''
+    #     given a word, return pos
+    #     '''
+    #     doc = self.LM_pos.full_tagging(word) 
+    #     print('doc:', doc)
+    #     pos_tag = doc[0].pos_  
+    #     return pos_tag
 
 
 
-    def __return_ans(self, movie_name, relation, res) -> str:
-        '''
-        construct answer with movie name, relation and query result
-        '''
+    # def __return_ans(self, movie_name, relation, res) -> str:
+    #     '''
+    #     construct answer with movie name, relation and query result
+    #     '''
 
-        # Temporarily fix unicode issue
-        if '–' in movie_name:
-            movie_name = movie_name.replace('–','-')
+    #     # Temporarily fix unicode issue
+    #     if '–' in movie_name:
+    #         movie_name = movie_name.replace('–','-')
 
-        if self.__get_word_pos(relation) == "NOUN":
-            ans = "The " + relation + " of " + movie_name + " is " + res + "."
-        else:
-            # ans = movie_name + " was " + relation + " " + self.__get_best_preposition(relation) + " " + res + "."
-            preposition = self.__get_best_preposition(relation) # preposition may be empty which is decided by the pre-trained model
-            if preposition != None:
-                ans = movie_name + " was " + relation + " " + preposition + " " + res + "."
-            else:
-                ans = movie_name + " was " + relation + " " + res + "."
-        return ans
+    #     if self.__get_word_pos(relation) == "NOUN":
+    #         ans = "The " + relation + " of " + movie_name + " is " + res + "."
+    #     else:
+    #         # ans = movie_name + " was " + relation + " " + self.__get_best_preposition(relation) + " " + res + "."
+    #         preposition = self.__get_best_preposition(relation) # preposition may be empty which is decided by the pre-trained model
+    #         if preposition != None:
+    #             ans = movie_name + " was " + relation + " " + preposition + " " + res + "."
+    #         else:
+    #             ans = movie_name + " was " + relation + " " + res + "."
+    #     return ans
 
     
     def __query__sparsql(self, query:str) -> list:
@@ -235,7 +241,7 @@ class Agent:
     
     def __question_classifier(self, sentence:str) -> int:
         
-        question_type = 1 # recommendation
+        question_type = self.classifier.question_classify(sentence)
         
         return question_type
     
@@ -267,25 +273,30 @@ class Agent:
                     #     ans = 'Null, query fail or error happened'
                     sentence = str(message.message)
                     question_type = self.__question_classifier(sentence)
-                    
+                    print(question_type)
                     try:
-                        
-                        if question_type == 1:
+                    
+                        if question_type == 0:
+                            ans = self.querier.query(sentence=sentence)
+                        elif question_type == 1:
+                            ans = self.multimeida.show_img(sentence=sentence)
+                        elif question_type == 2:
                         
                             ans1 = self.Recommendor.recommend(sentence=sentence, mode='feature')
                             ans2 = self.Recommendor.recommend(sentence=sentence, mode='movie')
-                            
-                            ans = self.resp_generator.generate(question_type, [ans1, ans2])
+                            print(ans1)
+                            print(ans2)
+                            ans = self.resp_generator.generate([ans1, ans2])
                     
                     except:
-                        ans = "Congratulation! You have triggered my bugs... XP\n Contact the developer via haoyang.liang@uzh.ch to help me being more robust!"
+                        ans = "Oops, there is something wrong with me. Can you give another question?"
                         
                     # print('ans: ', ans) 
                 
-                    
-                    room.post_messages(f"{ans}")
+                    ans = ans.encode('utf-8')
+                    room.post_messages(ans.decode('latin-1'))
                     # logging.info("To room %s\n Reply message: %s"%(room_id, ans))
-                    self.__real_time_logging("To room %s\n Reply message \{%s\}"%(room_id, ans))
+                    # self.__real_time_logging("To room %s\n Reply message \{%s\}"%(room_id, ans))
 
                     room.mark_as_processed(message)
                     

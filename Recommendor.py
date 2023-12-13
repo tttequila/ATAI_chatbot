@@ -47,7 +47,7 @@ class recommender():
         if mode == 'feature':
             return self._common_feature(sentence)
         
-    def _common_feature(self, sentence:str, K=10) -> list:
+    def _common_feature(self, sentence:str, K=3) -> list:
         '''
         Params:
             sentence: 
@@ -135,7 +135,7 @@ class recommender():
 
     #     return recom_movies
     
-    def _movie_reco(self, sentence) -> list:
+    def _movie_reco(self, sentence, K=3) -> list:
         movies = self.ner.extraction(sentence)
         
         movie_list_key = [key for key,value in self.KG.all2lbl.items() if value in movies]
@@ -150,7 +150,7 @@ class recommender():
             ent_lbl = self.KG.ent2lbl[self.KG.id2ent[idx]]
             if ent_lbl not in movies:
                 movie_rec.append(ent_lbl)
-        return movie_rec
+        return movie_rec[:min(len(movie_rec), K)]
     
 if __name__ == '__main__':
     import sparknlp

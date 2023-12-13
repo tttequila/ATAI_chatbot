@@ -123,7 +123,7 @@ class KG_handler:
     #                 print("WARNIND: multiple possible relations detected...")
     #             res['rel'] = seq
     #             res['rel_lbl'] = [seq]
-    #             res['rel_postfix'] = [self._get_rel_label(self.lbl2rel[seq])]
+    #             res['rel_postfix'] = [self._get_label(self.lbl2rel[seq])]
                 
                 
     #     # extract entity from candidates
@@ -190,7 +190,7 @@ class KG_handler:
     #     res['rel'] = rel
     #     res['ent_lbl'] = closest_ent_lbl[0]
     #     res['rel_lbl'] = closest_rel_lbl
-    #     res['rel_postfix'] = [self._get_rel_label(uri) for uri in closest_rel_uri]
+    #     res['rel_postfix'] = [self._get_label(uri) for uri in closest_rel_uri]
 
     #     return res
     
@@ -211,16 +211,42 @@ class KG_handler:
         
         return tokens
         
-    def _get_rel_label(self, URI):
+    def _get_label(self, URI):
         return str(URI).split('/')[-1]
     
     def _is_rel(self, URI):
-        label = self._get_rel_label(URI)
+        label = self._get_label(URI)
         return label[0] == 'P'
     
     def _is_ent(self, URI):
-        label = self._get_rel_label(URI)
+        label = self._get_label(URI)
         return label[0] == 'Q'   
+    
+    def _is_human(self, ent):
+        query = '''
+        PREFIX wd: <http://www.wikidata.org/entity/>
+        PREFIX wdt: <http://www.wikidata.org/prop/direct/>
+
+
+        SELECT ?instance
+        WHERE {
+        
+        SERVICE <https://query.wikidata.org/sparql>{    
+        
+        ?ent rdfs:label "%s"@en.
+        ?ent wdt:P31 ?instance.
+        
+        }
+        }'''%(ent)
+        
+        res = []
+        for row in self.graph.query(query):
+            # print(row)
+            res+=[self._get_label(str(i)) for i in row]
+        
+        return ('Q5' in res) 
+        
+        
     
     # def get_query_res(self, user_input:str) -> tuple:
         
