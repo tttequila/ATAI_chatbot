@@ -1,6 +1,7 @@
 # ATAI_chatbot
 <span style="color:gray"> 23HS ATAI Proj </span> [Github](https://github.com/tttequila/ATAI_chatbot)
 
+[Final evaluation paper](https://github.com/tttequila/ATAI_chatbot/blob/main/ATAI_Final_Evaluation.pdf)
 
 ❗VERY IMPORTANT: to fully operate the agent or test it, there are still some steps that need to be followed to download the data needed. 
 
